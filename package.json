@@ -1,0 +1,37 @@
+{
+    "name": "hackathon-nodejs-starter",
+    "version": "1.0.0",
+    "description": "",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "precommit": "lint-staged",
+        "postcommit": "git update-index --again",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "lint-staged": {
+        "src/**/*.js": ["prettier --write", "git add"]
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ArturJS/hackathon-nodejs-starter.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/ArturJS/hackathon-nodejs-starter/issues"
+    },
+    "homepage": "https://github.com/ArturJS/hackathon-nodejs-starter#readme",
+    "dependencies": {
+        "lodash": "4.17.5",
+        "puppeteer": "1.2.0",
+        "sequelize": "4.37.4",
+        "sequelize-cli": "4.0.0"
+    },
+    "devDependencies": {
+        "husky": "0.14.3",
+        "lint-staged": "7.0.0",
+        "prettier": "1.11.1"
+    }
+}
