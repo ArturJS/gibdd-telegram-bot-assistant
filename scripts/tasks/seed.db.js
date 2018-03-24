@@ -22,5 +22,7 @@ const db = require('../../src/models/index.js');
     const users = await db.User.findAll();
 
     console.log(JSON.stringify(users, null, '  '));
+
+    await db.sequelize.close();
 })();
 
