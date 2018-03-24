@@ -1,14 +1,14 @@
-var request = require('request'),
-    TelegramAPI = require('./telegram-bot.api'),
-    welcomeMessage =
-        'Привет! \r\n \r\n' +
-        'Этот Telegram bot создан для удобной отправки обращений о нарушениях правил дорожного движения.\r\n' +
-        'Достаточно 1 раз ввести свои персональные данные и в последующем можно будет только прикреплять фотографии и описание. \r\n' +
-        'При необходимости вы всегда можете исправить свои данные.\r\n \r\n' +
-        'Для ввода данных и/или подачи обращения нажмите кнопку продолжить.' +
-        'Обращаем ваше внимание на то, что отправляя обращение, вы соглашаетесь на обработку персональных данных сервисом ГИБДД',
-    nextButton = { title: 'Далее' },
-    cancelButton = { title: 'X Cancel' };
+const TelegramAPI = require('./telegram-bot.api');
+const welcomeMessage =
+    'Привет! \r\n \r\n' +
+    'Этот Telegram bot создан для удобной отправки обращений о нарушениях правил дорожного движения.\r\n' +
+    'Достаточно 1 раз ввести свои персональные данные и в последующем можно будет только прикреплять фотографии и описание. \r\n' +
+    'При необходимости вы всегда можете исправить свои данные.\r\n \r\n' +
+    'Для ввода данных и/или подачи обращения нажмите кнопку продолжить.' +
+    'Обращаем ваше внимание на то, что отправляя обращение, вы соглашаетесь на обработку персональных данных сервисом ГИБДД';
+const nextButton = { title: 'Далее' };
+const cancelButton = { title: 'X Cancel' };
+const request = require('request-promise');
 
 class UserBot {
     constructor() {
@@ -17,10 +17,14 @@ class UserBot {
         this.setHandlers();
     }
 
-    startBot() {
-        var checkFunc = this.getMessageChecker();
+    async startBot() {
+        // var checkFunc = this.getMessageChecker();
         this.initUsers();
-        this.timer = setInterval(checkFunc, this.time);
+        // this.timer = setInterval(checkFunc, this.time);
+
+        while (true) {
+            await this.waitForUpdate();
+        }
     }
 
     stopBot() {
@@ -240,6 +244,28 @@ class UserBot {
         };
     }
 
+    async waitForUpdate() {
+        while (true) {
+            const data = await this.checkUpdate();
+            const isUpdate = this.processResponse(data);
+
+            if (isUpdate) {
+                return true;
+            }
+        }
+    }
+
+    async checkUpdate() {
+        const url = this.telegramAPI.getHost() + 'getUpdates';
+
+        try {
+            return await request(url + '?offset=' + this.updateId);
+        } catch (err) {
+            // do nothing
+            console.log(err);
+        }
+    }
+
     processResponse(data) {
         if (!data) {
             return;
@@ -285,6 +311,8 @@ class UserBot {
                 return;
             }
         }
+
+        return true;
     }
 }
 
