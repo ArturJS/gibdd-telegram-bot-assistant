@@ -35,8 +35,9 @@ class BrowserSession {
 
         await this._acceptTermsAndConditions();
 
-        console.log('Make screenshot...');
-        await this.page.screenshot({ path: 'gibdd-start-newPage.png' });
+        // console.log('Make screenshot...');
+        // await this.page.screenshot({ path: 'gibdd-start-newPage.png' });
+        await this._createFullPageScreenshot();
 
         // TODO capture Captcha element for screenshot https://gist.github.com/malyw/b4e8284e42fdaeceab9a67a9b0263743
     }
@@ -63,6 +64,25 @@ class BrowserSession {
 
         console.log('Waiting for navigation...');
         await waitForReload(this.page); // page.waitForNavigation not working if page reload happens
+    }
+
+    async _createFullPageScreenshot() {
+        console.log('Make screenshot...');
+
+        const { clientWidth, scrollHeight } = await this.page.$eval(
+            'body',
+            ({ clientWidth, scrollHeight }) => ({ clientWidth, scrollHeight })
+        );
+
+        const screenshot = await this.page.screenshot({
+            clip: {
+                x: 0,
+                y: 0,
+                width: clientWidth,
+                height: scrollHeight
+            },
+            path: 'gibdd-start-newPage.png'
+        });
     }
 }
 
