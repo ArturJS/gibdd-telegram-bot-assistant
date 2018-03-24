@@ -1,5 +1,4 @@
 const puppeteer = require('puppeteer');
-const FormData = require('form-data');
 
 const sleep = async delay => {
     return new Promise(resolve => {
@@ -72,32 +71,11 @@ class BrowserSession {
     }
 
     async getCaptchaImage() {
-        const imageBuffer = await screenshotDOMElement({
+        return await screenshotDOMElement({
             // path: 'captcha-image.png',
             selector: '.captcha-img',
             page: this.page
         });
-
-        const formData = new FormData();
-
-        formData.append('captchaImage', imageBuffer, {
-            filename: 'captchaImage.png'
-        });
-
-        return {
-            send: async url => {
-                return new Promise((resolve, reject) => {
-                    formData.submit(url, (err, res) => {
-                        if (err) {
-                            reject(err);
-                            return;
-                        }
-
-                        resolve();
-                    });
-                });
-            }
-        };
     }
 
     async sendRequest(requestData = {}) {

@@ -1,4 +1,5 @@
-const TelegramAPI = require('./telegram-bot.api');
+const TelegramBot = require('node-telegram-bot-api');
+const Utils = require('./utils');
 const welcomeMessage =
     'Привет! \r\n \r\n' +
     'Этот Telegram bot создан для удобной отправки обращений о нарушениях правил дорожного движения.\r\n' +
@@ -20,38 +21,11 @@ const sleep = async delay => {
 
 class UserBot {
     constructor() {
-        this.telegramAPI = new TelegramAPI();
-        this.time = 1500; //long-polling
+        this.token = '579299516:AAFO3KZyZ8IDdKbJXnNmcC5LdbHTDXtXIYw';
+        this.telegramBot = new TelegramBot(this.token, { polling: true });
+        this.utils = new Utils();
         this.setHandlers();
         this.initUsers();
-    }
-
-    async startBot() {
-        this.isWorking = true;
-        this.hasStopped = false;
-
-        while (this.isWorking) {
-            await this.waitForUpdate();
-        }
-
-        this.hasStopped = true;
-    }
-
-    async waitForBotIsStopped() {
-        return new Promise(resolve => {
-            const intervalId = setInterval(() => {
-                if (this.hasStopped) {
-                    clearInterval(intervalId);
-                    resolve();
-                }
-            }, 1000);
-        });
-    }
-
-    async stopBot() {
-        this.isWorking = false;
-
-        await this.waitForBotIsStopped();
     }
 
     initUsers() {
@@ -60,7 +34,7 @@ class UserBot {
     }
 
     async processError(errorText, chat_id, username) {
-        var reply = await this.telegramAPI.botReply(
+        var reply = await this.telegramBot.sendMessage(
             chat_id,
             errorText || 'Ошибка'
         );
@@ -76,7 +50,7 @@ class UserBot {
     async processCancelButton(param, chat_id, username) {
         console.log(param);
         if (param === cancelButton.title) {
-            var reply = await this.telegramAPI.botReply(chat_id, 'Отменено');
+            var reply = await this.telegramBot.sendMessage(chat_id, 'Отменено');
             if (reply) {
                 this.setToInitial(chat_id, username);
             }
@@ -92,10 +66,13 @@ class UserBot {
     setHandlers() {
         this.handlers = {
             initial: async (chat_id, username) => {
-                var reply = await this.telegramAPI.botReply(
+                const buttons = JSON.stringify(
+                    this.utils.createChatKeyboard([[nextButton]])
+                );
+                var reply = await this.telegramBot.sendMessage(
                     chat_id,
-                    'Чтобы отправить обращение нажмите далее',
-                    [[nextButton]]
+                    'Чтобы отправить обращение нажмите Далее',
+                    { reply_markup: buttons }
                 );
 
                 if (reply) {
@@ -109,12 +86,14 @@ class UserBot {
                 console.log(chat_id, reply);
             },
             start: async (chat_id, username) => {
-                var reply = await this.telegramAPI.botReply(
+                const buttons = JSON.stringify(
+                    this.utils.createChatKeyboard([[nextButton]])
+                );
+                var reply = await this.telegramBot.sendMessage(
                     chat_id,
                     welcomeMessage,
-                    [[nextButton]]
+                    { reply_markup: buttons }
                 );
-
                 if (reply) {
                     this.users[username] = {
                         interceptorHandler: this.handlers.askName
@@ -124,12 +103,15 @@ class UserBot {
                 console.log(chat_id, reply);
             },
             askName: async (chat_id, text, username) => {
-                var reply = await this.telegramAPI.botReply(
+                const buttons = JSON.stringify(
+                    this.utils.createChatKeyboard([[cancelButton]])
+                );
+                // send a message to the chat acknowledging receipt of their message
+                var reply = await this.telegramBot.sendMessage(
                     chat_id,
                     'Введит имя и фамилию',
-                    [[cancelButton]]
+                    { reply_markup: buttons }
                 );
-
                 if (reply) {
                     this.users[
                         username
@@ -147,12 +129,14 @@ class UserBot {
                     var data = text.split(/\s+/g);
                     this.users[username].name = data[0];
                     this.users[username].surname = data[1];
-                    var reply = await this.telegramAPI.botReply(
+                    const buttons = JSON.stringify(
+                        this.utils.createChatKeyboard([[cancelButton]])
+                    );
+                    var reply = await this.telegramBot.sendMessage(
                         chat_id,
                         'Введит email для ответа',
-                        [[cancelButton]]
+                        { reply_markup: buttons }
                     );
-
                     if (reply) {
                         this.users[
                             username
@@ -170,12 +154,15 @@ class UserBot {
 
                 if (text && text.length > 1) {
                     this.users[username].email = text;
-                    var reply = await this.telegramAPI.botReply(
+                    const buttons = JSON.stringify(
+                        this.utils.createChatKeyboard([[cancelButton]])
+                    );
+                    // send a message to the chat acknowledging receipt of their message
+                    var reply = await this.telegramBot.sendMessage(
                         chat_id,
                         'Введите текст обращения',
-                        [[cancelButton]]
+                        { reply_markup: buttons }
                     );
-
                     if (reply) {
                         this.users[
                             username
@@ -193,10 +180,14 @@ class UserBot {
 
                 if (text && text.length > 1) {
                     this.users[username].text = text;
-                    var reply = await this.telegramAPI.botReply(
+                    const buttons = JSON.stringify(
+                        this.utils.createChatKeyboard([[cancelButton]])
+                    );
+                    // send a message to the chat acknowledging receipt of their message
+                    var reply = await this.telegramBot.sendMessage(
                         chat_id,
                         'Прикрепите фото',
-                        [[cancelButton]]
+                        { reply_markup: buttons }
                     );
 
                     if (reply) {
@@ -216,33 +207,29 @@ class UserBot {
 
                 console.log(message);
                 if (message && message.photo && message.photo.length) {
-                    var reply = await this.telegramAPI.botReply(
+                    const buttons = JSON.stringify(
+                        this.utils.createChatKeyboard([[cancelButton]])
+                    );
+                    // send a message to the chat acknowledging receipt of their message
+                    var reply = await this.telegramBot.sendMessage(
                         chat_id,
                         'Подождем капчу',
-                        [[cancelButton]]
+                        { reply_markup: buttons }
                     );
                     this.users[username].photo = message.photo[0].file_id;
 
                     await this.navigateToFormPage(username);
 
                     try {
-                        const captchaImageForm = await this.getCaptcha(
-                            username
-                        ); // here is form-data
-
-                        console.log('Stop updates checker...');
-                        await this.stopBot();
+                        const buffer = await this.getCaptcha(username); // here is form-data
 
                         console.log('sending captcha...');
                         // send captcha to user
-                        await captchaImageForm.send(
-                            `${this.telegramAPI.getHost()}sendPhoto?chat_id=${chat_id}`
-                        );
+                        await this.telegramBot.sendPhoto(chat_id, buffer);
                     } catch (err) {
                         console.log('ERRRor when processing captcha!!!');
+                        console.log(err);
                     }
-
-                    this.startBot();
 
                     if (reply) {
                         this.setToInitial(chat_id, username);
@@ -298,28 +285,17 @@ class UserBot {
         }
     }
 
+    startBot() {
+        this.telegramBot.on('message', msg => {
+            const chatId = msg.chat.id;
+            this.processResponse(msg);
+        });
+    }
+
     processResponse(data) {
-        if (!data) {
-            return;
-        }
-        try {
-            data = JSON.parse(data);
-        } catch (error) {
-            console.log(error);
-            return;
-        }
-
-        data = data.result;
         console.log(data);
-        if (!data) {
-            return;
-        }
-
-        var lastCommand = data[data.length - 1];
-
-        if (lastCommand && lastCommand.update_id) {
-            this.updateId = lastCommand.update_id + 1;
-        }
+        console.log('HEREEEE');
+        var lastCommand = { message: data };
 
         if (
             lastCommand &&
@@ -329,7 +305,7 @@ class UserBot {
         ) {
             var username = lastCommand.message.from.username,
                 chat_id = lastCommand.message.chat.id;
-
+            console.log('HEREEEE2');
             if (this.users[username]) {
                 this.users[username].interceptorHandler(
                     chat_id,
@@ -339,12 +315,11 @@ class UserBot {
                 );
                 return;
             } else if (lastCommand.message.text === '/start') {
+                console.log('HEREEEE3');
                 this.handlers.start(chat_id, username);
                 return;
             }
         }
-
-        return true;
     }
 }
 
