@@ -44,58 +44,199 @@ class UserBot {
         }
     }
 
-    async processCancelButton(param, chat_id) {
+    async processError(errorText, chat_id, username) {
+        var reply = await this.telegramAPI.botReply(
+            chat_id,
+            errorText || 'Ошибка'
+        );
+        if (reply) {
+            this.setToInitial(chat_id, username);
+        }
+    }
+
+    setToInitial(chat_id, username) {
+        this.handlers.initial(chat_id, username);
+    }
+
+    async processCancelButton(param, chat_id, username) {
+        console.log(param);
         if (param === cancelButton.title) {
             var reply = await this.telegramAPI.botReply(chat_id, 'Отменено');
             if (reply) {
-                this.setToInitial(chat_id);
+                this.setToInitial(chat_id, username);
             }
-            reply.then(() => {});
             return true;
         }
         return false;
     }
 
-    setToInitial(chat_id) {
-        this.interceptorHandler = null;
-        this.handlers.start(chat_id);
+    setToInitial(chat_id, username) {
+        this.handlers.initial(chat_id, username);
     }
 
     setHandlers() {
-        var that = this;
         this.handlers = {
-            start: async function(chat_id) {
-                var reply = await that.telegramAPI.botReply(
+            initial: async (chat_id, username) => {
+                var reply = await this.telegramAPI.botReply(
+                    chat_id,
+                    'Чтобы отправить обращение нажмите далее',
+                    [[nextButton]]
+                );
+
+                if (reply) {
+                    if (!this.users[username]) {
+                        this.users[username] = {};
+                    }
+                    this.users[
+                        username
+                    ].interceptorHandler = this.handlers.askName;
+                }
+                console.log(chat_id, reply);
+            },
+            start: async (chat_id, username) => {
+                var reply = await this.telegramAPI.botReply(
                     chat_id,
                     welcomeMessage,
                     [[nextButton]]
                 );
 
+                if (reply) {
+                    this.users[username] = {
+                        interceptorHandler: this.handlers.askName
+                    };
+                    console.log(this.users[username]);
+                }
                 console.log(chat_id, reply);
+            },
+            askName: async (chat_id, text, username) => {
+                var reply = await this.telegramAPI.botReply(
+                    chat_id,
+                    'Введит имя и фамилию',
+                    [[cancelButton]]
+                );
+
+                if (reply) {
+                    this.users[
+                        username
+                    ].interceptorHandler = this.handlers.askMail;
+                }
+                console.log(chat_id, reply);
+            },
+            askMail: async (chat_id, text, username) => {
+                if (await this.processCancelButton(text, chat_id)) {
+                    console.log('CACELED');
+                    return;
+                }
+                if (text && text.length > 3) {
+                    console.log('text!!!!!!!!');
+                    var data = text.split(/\s+/g);
+                    this.users[username].name = data[0];
+                    this.users[username].surname = data[1];
+                    var reply = await this.telegramAPI.botReply(
+                        chat_id,
+                        'Введит email для ответа',
+                        [[cancelButton]]
+                    );
+
+                    if (reply) {
+                        this.users[
+                            username
+                        ].interceptorHandler = this.handlers.askCommit;
+                    }
+                    console.log(chat_id, reply);
+                } else {
+                    this.processError('Неверно введены имя или фамилия');
+                }
+            },
+            askCommit: async (chat_id, text, username) => {
+                if (await this.processCancelButton(text, chat_id)) {
+                    return;
+                }
+
+                if (text && text.length > 1) {
+                    this.users[username].email = text;
+                    var reply = await this.telegramAPI.botReply(
+                        chat_id,
+                        'Введите текст обращения',
+                        [[cancelButton]]
+                    );
+
+                    if (reply) {
+                        this.users[
+                            username
+                        ].interceptorHandler = this.handlers.askDesсription;
+                    }
+                    console.log(chat_id, reply);
+                } else {
+                    this.processError('Неверно введены имя или фамилия');
+                }
+            },
+            askDesсription: async (chat_id, text, username) => {
+                if (await this.processCancelButton(text, chat_id)) {
+                    return;
+                }
+
+                if (text && text.length > 1) {
+                    this.users[username].text = text;
+                    var reply = await this.telegramAPI.botReply(
+                        chat_id,
+                        'Прикрепите фото',
+                        [[cancelButton]]
+                    );
+
+                    if (reply) {
+                        this.users[
+                            username
+                        ].interceptorHandler = this.handlers.waitForCapcha;
+                    }
+                    console.log(chat_id, reply);
+                } else {
+                    this.processError('Неверно введен текст');
+                }
+            },
+            waitForCapcha: async (chat_id, text, username, message) => {
+                if (await this.processCancelButton(text, chat_id)) {
+                    return;
+                }
+
+                console.log(message);
+                if (message && message.photo && message.photo.length) {
+                    var reply = await this.telegramAPI.botReply(
+                        chat_id,
+                        'Подождем капчу',
+                        [[cancelButton]]
+                    );
+                    this.users[username].photo = message.photo[0].file_id;
+
+                    if (reply) {
+                        this.setToInitial(chat_id, username);
+                    }
+                    console.log(chat_id, reply);
+                } else {
+                    this.processError('Не прикреплена картинка');
+                }
             }
         };
     }
 
     getMessageChecker() {
         var url = this.telegramAPI.getHost() + 'getUpdates',
-            that = this,
-            lastUpdateId = null;
+            that = this;
         return function() {
-            if (lastUpdateId !== that.updateId) {
-                request
-                    .get(url + '?offset=' + that.updateId)
-                    .on('response', function(response, data) {
-                        //
-                        response.on('data', function(data) {
-                            that.processResponse(data);
-                        });
-                    })
-                    .on('error', function(err) {
-                        console.log('error!!');
-                        lastUpdateId = null;
+            console.log(that.updateId);
+            request
+                .get(url + '?offset=' + that.updateId)
+                .on('response', function(response, data) {
+                    //
+                    response.on('data', function(data) {
+                        console.log('DATA');
+                        console.log(data.toString('utf8'));
+                        that.processResponse(data);
                     });
-                lastUpdateId = that.updateId ? that.updateId : null;
-            }
+                })
+                .on('error', function(err) {
+                    console.log('error!!');
+                });
         };
     }
 
@@ -117,6 +258,7 @@ class UserBot {
         }
 
         var lastCommand = data[data.length - 1];
+
         if (lastCommand && lastCommand.update_id) {
             this.updateId = lastCommand.update_id + 1;
         }
@@ -130,19 +272,16 @@ class UserBot {
             var username = lastCommand.message.from.username,
                 chat_id = lastCommand.message.chat.id;
 
-            console.log(username);
-            console.log(this.users);
-            console.log(lastCommand.message.text);
-
             if (this.users[username]) {
                 this.users[username].interceptorHandler(
-                    lastCommand.message.chat.id,
+                    chat_id,
                     lastCommand.message.text,
+                    username,
                     lastCommand.message
                 );
                 return;
             } else if (lastCommand.message.text === '/start') {
-                this.handlers.start(chat_id);
+                this.handlers.start(chat_id, username);
                 return;
             }
         }

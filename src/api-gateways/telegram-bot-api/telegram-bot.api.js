@@ -1,15 +1,13 @@
 var request = require('request'),
     maxPhotoTextLength = 200;
 
-var requestWrapper = params => {
+var requestWrapper = async params => {
     return new Promise((resolve, reject) => {
-        console.log('promise');
-        console.log(params);
         request.post(
             params,
             function(err, response, body) {
                 console.log('resolve');
-                resolve(err, response, body);
+                resolve(body);
             },
             function(err) {
                 console.log('error', err);
@@ -45,10 +43,12 @@ class TelegramBotAPI {
                 : JSON.stringify(this.createChatKeyboard(keyboardButtons));
         }
 
-        return await requestWrapper({
+        var result = await requestWrapper({
             url: this.host + 'sendMessage',
             form: form
         });
+
+        return result;
     }
 
     async updateMessage(prop) {
