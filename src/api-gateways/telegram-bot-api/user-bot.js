@@ -12,6 +12,8 @@ const cancelButton = { title: 'X Cancel' };
 const request = require('request-promise');
 const gibddApi = require('../gibdd-api/gibdd.api');
 const db = require('../../models/index.js');
+const fs = require('mz/fs');
+const path = require('path');
 
 const sleep = async delay => {
     return new Promise(resolve => {
@@ -216,8 +218,18 @@ class UserBot {
                         'Подождем капчу',
                         { reply_markup: buttons }
                     );
-                    this.users[username].photo = message.photo[0].file_id;
-
+                    this.users[username].photo =
+                        message.photo[message.photo.length - 1].file_id;
+                    let photoFile = await this.getPhotoFile(
+                        message.photo[message.photo.length - 1].file_id
+                    );
+                    await fs.writeFile(
+                        path.resolve(
+                            __dirname,
+                            `../../../files/image-${Date.now()}.jpg`
+                        ),
+                        photoFile
+                    );
                     await this.navigateToFormPage(username);
                     await this.sendCaptcha(username, chat_id);
 
@@ -260,6 +272,15 @@ class UserBot {
                 await currentUser.browserSession._createFullPageScreenshot();
             }
         };
+    }
+
+    async getPhotoFile(file_id) {
+        var file = await this.telegramBot.getFile(file_id);
+        var res = await request.get(
+            `https://api.telegram.org/file/bot${this.token}/${file.file_path}`,
+            { encoding: null }
+        );
+        return res;
     }
 
     async navigateToFormPage(username) {
