@@ -5,12 +5,16 @@
     "main": "src/index.js",
     "scripts": {
         "start": "node src/index.js",
+        "start-bot": "node src/api-gateways/telegram-bot-api/start.js",
         "precommit": "lint-staged",
         "postcommit": "git update-index --again",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "lint-staged": {
-        "src/**/*.js": ["prettier --write", "git add"]
+        "src/**/*.js": [
+            "prettier --write",
+            "git add"
+        ]
     },
     "repository": {
         "type": "git",
@@ -26,6 +30,7 @@
     "dependencies": {
         "lodash": "4.17.5",
         "puppeteer": "1.2.0",
+        "request": "^2.85.0",
         "sequelize": "4.37.4",
         "sequelize-cli": "4.0.0"
     },
