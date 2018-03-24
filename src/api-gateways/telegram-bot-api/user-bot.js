@@ -9,43 +9,54 @@ const welcomeMessage =
 const nextButton = { title: 'Далее' };
 const cancelButton = { title: 'X Cancel' };
 const request = require('request-promise');
+const gibddApi = require('../gibdd-api/gibdd.api');
+const db = require('../../models/index.js');
+
+const sleep = async delay => {
+    return new Promise(resolve => {
+        setTimeout(resolve, delay);
+    });
+};
 
 class UserBot {
     constructor() {
         this.telegramAPI = new TelegramAPI();
         this.time = 1500; //long-polling
         this.setHandlers();
+        this.initUsers();
     }
 
     async startBot() {
-        // var checkFunc = this.getMessageChecker();
-        this.initUsers();
-        // this.timer = setInterval(checkFunc, this.time);
+        this.isWorking = true;
+        this.hasStopped = false;
 
-        while (true) {
+        while (this.isWorking) {
             await this.waitForUpdate();
         }
+
+        this.hasStopped = true;
     }
 
-    stopBot() {
-        if (this.timer) {
-            clearInterval(this.timer);
-        }
+    async waitForBotIsStopped() {
+        return new Promise(resolve => {
+            const intervalId = setInterval(() => {
+                if (this.hasStopped) {
+                    clearInterval(intervalId);
+                    resolve();
+                }
+            }, 1000);
+        });
+    }
+
+    async stopBot() {
+        this.isWorking = false;
+
+        await this.waitForBotIsStopped();
     }
 
     initUsers() {
         // getUsersFromDB
         this.users = {};
-    }
-
-    setInterceptor(result, success, failure) {
-        if (result && result.then) {
-            result.then(() => {
-                this.interceptorHandler = success;
-            });
-        } else {
-            this.interceptorHandler = failure;
-        }
     }
 
     async processError(errorText, chat_id, username) {
@@ -149,7 +160,7 @@ class UserBot {
                     }
                     console.log(chat_id, reply);
                 } else {
-                    this.processError('Неверно введены имя или фамилия');
+                    await this.processError('Неверно введены имя или фамилия');
                 }
             },
             askCommit: async (chat_id, text, username) => {
@@ -172,7 +183,7 @@ class UserBot {
                     }
                     console.log(chat_id, reply);
                 } else {
-                    this.processError('Неверно введены имя или фамилия');
+                    await this.processError('Неверно введены имя или фамилия');
                 }
             },
             askDesсription: async (chat_id, text, username) => {
@@ -195,7 +206,7 @@ class UserBot {
                     }
                     console.log(chat_id, reply);
                 } else {
-                    this.processError('Неверно введен текст');
+                    await this.processError('Неверно введен текст');
                 }
             },
             waitForCapcha: async (chat_id, text, username, message) => {
@@ -212,46 +223,65 @@ class UserBot {
                     );
                     this.users[username].photo = message.photo[0].file_id;
 
+                    await this.navigateToFormPage(username);
+
+                    try {
+                        const captchaImageForm = await this.getCaptcha(
+                            username
+                        ); // here is form-data
+
+                        console.log('Stop updates checker...');
+                        await this.stopBot();
+
+                        console.log('sending captcha...');
+                        // send captcha to user
+                        await captchaImageForm.send(
+                            `${this.telegramAPI.getHost()}sendPhoto?chat_id=${chat_id}`
+                        );
+                    } catch (err) {
+                        console.log('ERRRor when processing captcha!!!');
+                    }
+
+                    this.startBot();
+
                     if (reply) {
                         this.setToInitial(chat_id, username);
                     }
                     console.log(chat_id, reply);
                 } else {
-                    this.processError('Не прикреплена картинка');
+                    await this.processError('Не прикреплена картинка');
                 }
             }
         };
     }
 
-    getMessageChecker() {
-        var url = this.telegramAPI.getHost() + 'getUpdates',
-            that = this;
-        return function() {
-            console.log(that.updateId);
-            request
-                .get(url + '?offset=' + that.updateId)
-                .on('response', function(response, data) {
-                    //
-                    response.on('data', function(data) {
-                        console.log('DATA');
-                        console.log(data.toString('utf8'));
-                        that.processResponse(data);
-                    });
-                })
-                .on('error', function(err) {
-                    console.log('error!!');
-                });
-        };
+    async navigateToFormPage(username) {
+        const currentUser = this.users[username];
+        const browserSession = (currentUser.browserSession = gibddApi.createBrowserSession());
+
+        await browserSession.init();
+        await browserSession.navigateToFormPage();
+    }
+
+    async getCaptcha(username) {
+        console.log('try to get captcha...');
+        const currentUser = this.users[username];
+        const { browserSession } = currentUser;
+
+        return await browserSession.getCaptchaImage();
     }
 
     async waitForUpdate() {
         while (true) {
+            console.log('CHECK UPDATE');
             const data = await this.checkUpdate();
             const isUpdate = this.processResponse(data);
 
-            if (isUpdate) {
+            if (isUpdate || !this.isWorking) {
                 return true;
             }
+
+            await sleep(1500);
         }
     }
 
@@ -259,7 +289,9 @@ class UserBot {
         const url = this.telegramAPI.getHost() + 'getUpdates';
 
         try {
-            return await request(url + '?offset=' + this.updateId);
+            const offset = this.updateId ? '?offset=' + this.updateId : '';
+
+            return await request(url + offset);
         } catch (err) {
             // do nothing
             console.log(err);

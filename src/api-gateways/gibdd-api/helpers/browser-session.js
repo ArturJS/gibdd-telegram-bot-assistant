@@ -84,46 +84,31 @@ class BrowserSession {
             filename: 'captchaImage.png'
         });
 
-        return formData;
+        return {
+            send: async url => {
+                return new Promise((resolve, reject) => {
+                    formData.submit(url, (err, res) => {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve();
+                    });
+                });
+            }
+        };
     }
 
     async sendRequest(requestData = {}) {
-        await this._fillInForm(requestData);
+        await this.fillInForm(requestData);
 
         await this._createFullPageScreenshot();
 
         // todo submit form
     }
 
-    async sendConfirmCode(confirmCode) {
-        // TODO
-    }
-
-    async destroy() {
-        console.log('Close the browser...');
-        return await this.browser.close();
-    }
-
-    async _openStartGibddPage() {
-        console.log('Open the page...');
-        // see also https://github.com/GoogleChrome/puppeteer/blob/master/docs/api.md#pagegotourl-options
-        await this.page.goto('https://xn--90adear.xn--p1ai/request_main', {
-            waitUntil: 'networkidle0'
-        });
-    }
-
-    async _acceptTermsAndConditions() {
-        console.log('Click checkbox "С информацией ознакомлен"...');
-        await this.page.click('.ln-content-holder form label.checkbox');
-
-        console.log('Click button "Подать обращение"...');
-        await this.page.click('.ln-content-holder form .u-form__sbt');
-
-        console.log('Waiting for navigation...');
-        await waitForReload(this.page); // page.waitForNavigation not working if page reload happens
-    }
-
-    async _fillInForm({
+    async fillInForm({
         firstName,
         lastName,
         email,
@@ -180,6 +165,34 @@ class BrowserSession {
                 'form[id="request"] input[name="captcha"]'
             ).value = captchaText;
         }, captchaText);
+    }
+
+    async sendConfirmCode(confirmCode) {
+        // TODO
+    }
+
+    async destroy() {
+        console.log('Close the browser...');
+        return await this.browser.close();
+    }
+
+    async _openStartGibddPage() {
+        console.log('Open the page...');
+        // see also https://github.com/GoogleChrome/puppeteer/blob/master/docs/api.md#pagegotourl-options
+        await this.page.goto('https://xn--90adear.xn--p1ai/request_main', {
+            waitUntil: 'networkidle0'
+        });
+    }
+
+    async _acceptTermsAndConditions() {
+        console.log('Click checkbox "С информацией ознакомлен"...');
+        await this.page.click('.ln-content-holder form label.checkbox');
+
+        console.log('Click button "Подать обращение"...');
+        await this.page.click('.ln-content-holder form .u-form__sbt');
+
+        console.log('Waiting for navigation...');
+        await waitForReload(this.page); // page.waitForNavigation not working if page reload happens
     }
 
     async _createFullPageScreenshot() {
