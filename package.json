@@ -7,10 +7,15 @@
         "start": "node src/index.js",
         "precommit": "lint-staged",
         "postcommit": "git update-index --again",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "db:seed": "node scripts/tasks/seed.db.js",
+        "db:migrate": "npx sequelize db:migrate"
     },
     "lint-staged": {
-        "src/**/*.js": ["prettier --write", "git add"]
+        "src/**/*.js": [
+            "prettier --write",
+            "git add"
+        ]
     },
     "repository": {
         "type": "git",
@@ -25,6 +30,8 @@
     "homepage": "https://github.com/ArturJS/hackathon-nodejs-starter#readme",
     "dependencies": {
         "lodash": "4.17.5",
+        "pg": "7.4.1",
+        "pg-hstore": "2.3.2",
         "puppeteer": "1.2.0",
         "sequelize": "4.37.4",
         "sequelize-cli": "4.0.0"
