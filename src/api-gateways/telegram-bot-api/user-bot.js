@@ -211,7 +211,7 @@ class UserBot {
                         this.utils.createChatKeyboard([[cancelButton]])
                     );
                     // send a message to the chat acknowledging receipt of their message
-                    var reply = await this.telegramBot.sendMessage(
+                    await this.telegramBot.sendMessage(
                         chat_id,
                         'Подождем капчу',
                         { reply_markup: buttons }
@@ -219,25 +219,45 @@ class UserBot {
                     this.users[username].photo = message.photo[0].file_id;
 
                     await this.navigateToFormPage(username);
+                    await this.sendCaptcha(username, chat_id);
 
-                    try {
-                        const buffer = await this.getCaptcha(username); // here is form-data
-
-                        console.log('sending captcha...');
-                        // send captcha to user
-                        await this.telegramBot.sendPhoto(chat_id, buffer);
-                    } catch (err) {
-                        console.log('ERRRor when processing captcha!!!');
-                        console.log(err);
-                    }
+                    let reply = await this.telegramBot.sendMessage(
+                        chat_id,
+                        'Введите каптчу',
+                        { reply_markup: buttons }
+                    );
 
                     if (reply) {
-                        this.setToInitial(chat_id, username);
+                        this.users[
+                            username
+                        ].interceptorHandler = this.handlers.getFromUserCaptcha;
+                        // this.setToInitial(chat_id, username);
                     }
                     console.log(chat_id, reply);
                 } else {
                     await this.processError('Не прикреплена картинка');
                 }
+            },
+            getFromUserCaptcha: async (chat_id, text, username, message) => {
+                if (await this.processCancelButton(text, chat_id)) {
+                    return;
+                }
+
+                this.users[username].captchaText = text;
+
+                const currentUser = this.users[username];
+
+                await currentUser.browserSession.fillInForm({
+                    firstName: currentUser.name,
+                    lastName: currentUser.surname,
+                    email: currentUser.email,
+                    region: '64', // Саратовская область
+                    subdivision: '54', // Гибдд по Саратовской области
+                    requestDescription: currentUser.text,
+                    captchaText: currentUser.captchaText
+                });
+
+                await currentUser.browserSession._createFullPageScreenshot();
             }
         };
     }
@@ -248,6 +268,19 @@ class UserBot {
 
         await browserSession.init();
         await browserSession.navigateToFormPage();
+    }
+
+    async sendCaptcha(username, chat_id) {
+        try {
+            const buffer = await this.getCaptcha(username); // here is form-data
+
+            console.log('sending captcha...');
+            // send captcha to user
+            await this.telegramBot.sendPhoto(chat_id, buffer);
+        } catch (err) {
+            console.log('ERRRor when processing captcha!!!');
+            console.log(err);
+        }
     }
 
     async getCaptcha(username) {
