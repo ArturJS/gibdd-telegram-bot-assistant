@@ -29,6 +29,7 @@
     },
     "homepage": "https://github.com/ArturJS/hackathon-nodejs-starter#readme",
     "dependencies": {
+        "form-data": "2.3.2",
         "lodash": "4.17.5",
         "pg": "7.4.1",
         "pg-hstore": "2.3.2",

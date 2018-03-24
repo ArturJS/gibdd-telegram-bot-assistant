@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const FormData = require('form-data');
 
 const sleep = async delay => {
     return new Promise(resolve => {
@@ -12,27 +13,90 @@ const waitForReload = async page => {
     });
 };
 
+/**
+ * Takes a screenshot of a DOM element on the page, with optional padding.
+ *
+ * @param {!{path:string, selector:string, padding:(number|undefined)}=} opts
+ * @return {!Promise<!Buffer>}
+ */
+const screenshotDOMElement = async (opts = {}) => {
+    const padding = 'padding' in opts ? opts.padding : 0;
+    const path = 'path' in opts ? opts.path : null;
+    const { page, selector } = opts;
+
+    if (!selector) throw Error('Please provide a selector.');
+
+    if (!page) throw Error('Please provide the page.');
+
+    const rect = await page.evaluate(selector => {
+        const element = document.querySelector(selector);
+
+        if (!element) return null;
+
+        const { x, y, width, height } = element.getBoundingClientRect();
+
+        return { left: x, top: y, width, height, id: element.id };
+    }, selector);
+
+    if (!rect)
+        throw Error(
+            `Could not find element that matches selector: ${selector}.`
+        );
+
+    return await page.screenshot({
+        path,
+        clip: {
+            x: rect.left - padding,
+            y: rect.top - padding,
+            width: rect.width + padding * 2,
+            height: rect.height + padding * 2
+        }
+    });
+};
+
 class BrowserSession {
     constructor() {
         this.browser = null;
         this.page = null;
     }
 
-    async create() {
+    async init() {
         this.browser = await puppeteer.launch();
         this.page = await this.browser.newPage();
     }
 
-    async sendRequest(requestData = {}) {
+    async navigateToFormPage() {
         await this._openStartGibddPage();
 
         await this._acceptTermsAndConditions();
+    }
 
+    async getCaptchaImage() {
+        const imageBuffer = await screenshotDOMElement({
+            // path: 'captcha-image.png',
+            selector: '.captcha-img',
+            page: this.page
+        });
+
+        const formData = new FormData();
+
+        formData.append('captchaImage', imageBuffer, {
+            filename: 'captchaImage.png'
+        });
+
+        return formData;
+    }
+
+    async sendRequest(requestData = {}) {
         await this._fillInForm(requestData);
 
         await this._createFullPageScreenshot();
 
-        // TODO capture Captcha element for screenshot https://gist.github.com/malyw/b4e8284e42fdaeceab9a67a9b0263743
+        // todo submit form
+    }
+
+    async sendConfirmCode(confirmCode) {
+        // TODO
     }
 
     async destroy() {
