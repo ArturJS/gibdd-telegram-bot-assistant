@@ -23,20 +23,13 @@ class BrowserSession {
         this.page = await this.browser.newPage();
     }
 
-    async sendRequest({
-        firstName,
-        lastName,
-        email,
-        region,
-        subdivision,
-        requestDescription
-    } = {}) {
+    async sendRequest(requestData = {}) {
         await this._openStartGibddPage();
 
         await this._acceptTermsAndConditions();
 
-        // console.log('Make screenshot...');
-        // await this.page.screenshot({ path: 'gibdd-start-newPage.png' });
+        await this._fillInForm(requestData);
+
         await this._createFullPageScreenshot();
 
         // TODO capture Captcha element for screenshot https://gist.github.com/malyw/b4e8284e42fdaeceab9a67a9b0263743
@@ -64,6 +57,65 @@ class BrowserSession {
 
         console.log('Waiting for navigation...');
         await waitForReload(this.page); // page.waitForNavigation not working if page reload happens
+    }
+
+    async _fillInForm({
+        firstName,
+        lastName,
+        email,
+        region,
+        subdivision,
+        requestDescription,
+        captchaText
+    }) {
+        // "Регион"
+        await this.page.evaluate(region => {
+            document.querySelector(
+                'form[id="request"] select[name="region_code"]'
+            ).value = region;
+        }, region);
+
+        // "Подразделение"
+        await this.page.evaluate(subdivision => {
+            document.querySelector(
+                'form[id="request"] select[id="subunit_check"]'
+            ).value = subdivision;
+        }, subdivision);
+
+        // "Фамилия"
+        await this.page.evaluate(lastName => {
+            document.querySelector('#surname_check').value = lastName;
+        }, lastName);
+
+        // "Имя"
+        await this.page.evaluate(firstName => {
+            document.querySelector('#firstname_check').value = firstName;
+        }, firstName);
+
+        // "Адрес электронной почты"
+        await this.page.evaluate(email => {
+            document.querySelector('#email_check').value = email;
+        }, email);
+
+        // "Текст обращения"
+        await this.page.evaluate(requestDescription => {
+            document.querySelector(
+                'form[id="request"] textarea[name="message"]'
+            ).value = requestDescription;
+        }, requestDescription);
+
+        // TODO file upload
+        // "Прикрепить файл"
+        // await page.evaluate((files) => {
+        //     document.querySelector('form[id="request"] input[id="fileupload-input"]').value = files;
+        // }, files);
+
+        // "Введите текст с изображения" (Каптча)
+        await this.page.evaluate(captchaText => {
+            document.querySelector(
+                'form[id="request"] input[name="captcha"]'
+            ).value = captchaText;
+        }, captchaText);
     }
 
     async _createFullPageScreenshot() {
