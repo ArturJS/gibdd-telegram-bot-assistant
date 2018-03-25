@@ -1,4 +1,5 @@
 const TelegramBot = require('node-telegram-bot-api');
+const _ = require('lodash');
 const Utils = require('./utils');
 const welcomeMessage =
     'Привет! \r\n \r\n' +
@@ -452,29 +453,24 @@ class UserBot {
         });
     }
 
-    processResponse(data) {
-        console.log(data);
+    processResponse(message) {
         console.log('HEREEEE');
-        var lastCommand = { message: data };
+        const userId = _.get(message, 'from.id');
+        const text = _.get(message, 'text');
 
-        if (
-            lastCommand &&
-            lastCommand.message &&
-            lastCommand.message.from &&
-            lastCommand.message.from.username
-        ) {
-            var username = lastCommand.message.from.username,
-                chat_id = lastCommand.message.chat.id;
+        if (userId && text) {
+            var username = message.from.username || userId, // todo refactor
+                chat_id = message.chat.id;
             console.log('HEREEEE2');
             if (this.users[username]) {
                 this.users[username].interceptorHandler(
                     chat_id,
-                    lastCommand.message.text,
+                    message.text,
                     username,
-                    lastCommand.message
+                    message
                 );
                 return;
-            } else if (lastCommand.message.text === '/start') {
+            } else if (message.text === '/start') {
                 console.log('HEREEEE3');
                 this.handlers.start(chat_id, username);
                 return;
