@@ -239,11 +239,13 @@ class UserBot {
                 }
             },
             waitForCapcha: async (chat_id, text, username, message) => {
+                console.log('HERE76767676');
                 if (await this.processCancelButton(text, chat_id)) {
+                    console.log('canceled');
                     return;
                 }
 
-                console.log(message);
+                console.log(message.photo);
                 if (message && message.photo && message.photo.length) {
                     const buttons = JSON.stringify(
                         this.utils.createChatKeyboard([[cancelButton]])
@@ -351,6 +353,9 @@ class UserBot {
                                 return (
                                     item.headers.from.indexOf(
                                         'appeal@noreply.mvd.ru'
+                                    ) > -1 &&
+                                    item.headers.subject.indexOf(
+                                        'Проверка почты'
                                     ) > -1
                                 );
                             });
@@ -455,10 +460,11 @@ class UserBot {
 
     processResponse(message) {
         console.log('HEREEEE');
+        console.log(message);
         const userId = _.get(message, 'from.id');
         const text = _.get(message, 'text');
 
-        if (userId && text) {
+        if (userId) {
             var username = message.from.username || userId, // todo refactor
                 chat_id = message.chat.id;
             console.log('HEREEEE2');
