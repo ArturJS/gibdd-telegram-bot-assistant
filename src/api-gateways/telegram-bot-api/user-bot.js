@@ -6,7 +6,7 @@ const welcomeMessage =
     'Этот Telegram bot создан для удобной отправки обращений о нарушениях правил дорожного движения.\r\n' +
     'Достаточно 1 раз ввести свои персональные данные и в последующем можно будет только прикреплять фотографии и описание. \r\n' +
     'При необходимости вы всегда можете исправить свои данные.\r\n \r\n' +
-    'Для ввода данных и/или подачи обращения нажмите кнопку продолжить.' +
+    'Для ввода данных и/или подачи обращения нажмите кнопку `Далее`.' +
     'Обращаем ваше внимание на то, что отправляя обращение, вы соглашаетесь на обработку персональных данных сервисом ГИБДД';
 const nextButton = { title: 'Далее' };
 const cancelButton = { title: 'X Cancel' };
@@ -105,7 +105,7 @@ class UserBot {
                 var reply = await this.telegramBot.sendMessage(
                     chat_id,
                     welcomeMessage,
-                    { reply_markup: buttons }
+                    { reply_markup: buttons, parse_mode: 'Markdown' }
                 );
                 if (reply) {
                     this.users[username] = {
@@ -122,7 +122,7 @@ class UserBot {
                 // send a message to the chat acknowledging receipt of their message
                 var reply = await this.telegramBot.sendMessage(
                     chat_id,
-                    'Введит имя и фамилию',
+                    'Введите имя и фамилию',
                     { reply_markup: buttons }
                 );
                 if (reply) {
@@ -147,7 +147,7 @@ class UserBot {
                     );
                     var reply = await this.telegramBot.sendMessage(
                         chat_id,
-                        'Введит email для ответа',
+                        'Введите email для ответа',
                         { reply_markup: buttons }
                     );
                     if (reply) {
