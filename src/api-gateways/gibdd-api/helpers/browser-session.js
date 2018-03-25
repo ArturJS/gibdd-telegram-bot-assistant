@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const systemEmail = 'jemjemjem1233+@gmail.com';
 
 const sleep = async delay => {
     return new Promise(resolve => {
@@ -79,11 +80,31 @@ class BrowserSession {
     }
 
     async sendRequest(requestData = {}) {
+        console.log(requestData);
         await this.fillInForm(requestData);
 
         await this._createFullPageScreenshot();
 
         // todo submit form
+    }
+
+    async setEmailCode(code) {
+        await this.page.evaluate(code => {
+            document.querySelector('.confirm-mail').value = code;
+        }, code);
+        await this.page.evaluate(code => {
+            document.querySelector('#confirm_mail').click();
+        }, code);
+        await this.page.evaluate(code => {
+            document.querySelector('#correct').click();
+        }, code);
+    }
+
+    async sendForm() {
+        await this.page.waitFor(2000);
+        await this.page.evaluate(() => {
+            document.querySelector('#form-submit').click();
+        });
     }
 
     async fillInForm({
@@ -93,20 +114,19 @@ class BrowserSession {
         region,
         subdivision,
         requestDescription,
-        captchaText
+        captchaText,
+        filePath
     }) {
         // "Регион"
         await this.page.evaluate(region => {
-            document.querySelector(
-                'form[id="request"] select[name="region_code"]'
-            ).value = region;
+            var el = $('form[id="request"] select[name="region_code"]');
+            el.val(region).trigger('change');
         }, region);
-
+        await this.page.waitFor(2000);
         // "Подразделение"
         await this.page.evaluate(subdivision => {
-            document.querySelector(
-                'form[id="request"] select[id="subunit_check"]'
-            ).value = subdivision;
+            var el = $('form[id="request"] select[id="subunit_check"]');
+            el.val(subdivision).trigger('change');
         }, subdivision);
 
         // "Фамилия"
@@ -122,7 +142,7 @@ class BrowserSession {
         // "Адрес электронной почты"
         await this.page.evaluate(email => {
             document.querySelector('#email_check').value = email;
-        }, email);
+        }, systemEmail);
 
         // "Текст обращения"
         await this.page.evaluate(requestDescription => {
@@ -133,9 +153,9 @@ class BrowserSession {
 
         // TODO file upload
         // "Прикрепить файл"
-        // await page.evaluate((files) => {
-        //     document.querySelector('form[id="request"] input[id="fileupload-input"]').value = files;
-        // }, files);
+        const inputElement = await this.page.$$('input[type=file]');
+        const res = await inputElement[0].uploadFile(filePath);
+        await this.page.waitFor(2000);
 
         // "Введите текст с изображения" (Каптча)
         await this.page.evaluate(captchaText => {
@@ -143,6 +163,15 @@ class BrowserSession {
                 'form[id="request"] input[name="captcha"]'
             ).value = captchaText;
         }, captchaText);
+
+        await this.page.evaluate(() => {
+            document.querySelector('.u-form__sbt.js-u-form__sbt').click();
+        });
+        await this.page.waitFor(2000);
+
+        await this.page.evaluate(() => {
+            document.querySelector('#confirm_but').click();
+        });
     }
 
     async sendConfirmCode(confirmCode) {
