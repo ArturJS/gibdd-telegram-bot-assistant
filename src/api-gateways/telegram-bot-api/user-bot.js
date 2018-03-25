@@ -14,6 +14,7 @@ const gibddApi = require('../gibdd-api/gibdd.api');
 const db = require('../../models/index.js');
 const fs = require('mz/fs');
 const path = require('path');
+const Client = require('node-poplib-gowhich').Client;
 
 const sleep = async delay => {
     return new Promise(resolve => {
@@ -28,6 +29,15 @@ class UserBot {
         this.utils = new Utils();
         this.setHandlers();
         this.initUsers();
+
+        this.pop3 = new Client({
+            hostname: 'pop.gmail.com',
+            port: 995,
+            tls: true,
+            mailparser: true,
+            username: 'jemjemjem1233@gmail.com',
+            password: 'jemjem123'
+        });
     }
 
     initUsers() {
@@ -175,6 +185,31 @@ class UserBot {
                     await this.processError('Неверно введены имя или фамилия');
                 }
             },
+            askNewCommit: async (chat_id, text, username) => {
+                if (await this.processCancelButton(text, chat_id)) {
+                    return;
+                }
+
+                if (text && text === 'Отправить') {
+                    const buttons = JSON.stringify(
+                        this.utils.createChatKeyboard([[cancelButton]])
+                    );
+                    // send a message to the chat acknowledging receipt of their message
+                    var reply = await this.telegramBot.sendMessage(
+                        chat_id,
+                        'Введите текст обращения',
+                        { reply_markup: buttons }
+                    );
+                    if (reply) {
+                        this.users[
+                            username
+                        ].interceptorHandler = this.handlers.askDesсription;
+                    }
+                    console.log(chat_id, reply);
+                } else {
+                    await this.processError('Неверно введены имя или фамилия');
+                }
+            },
             askDesсription: async (chat_id, text, username) => {
                 if (await this.processCancelButton(text, chat_id)) {
                     return;
@@ -223,13 +258,12 @@ class UserBot {
                     let photoFile = await this.getPhotoFile(
                         message.photo[message.photo.length - 1].file_id
                     );
-                    await fs.writeFile(
-                        path.resolve(
-                            __dirname,
-                            `../../../files/image-${Date.now()}.jpg`
-                        ),
-                        photoFile
+                    let filePath = path.resolve(
+                        __dirname,
+                        `../../../files/image-${Date.now()}.jpg`
                     );
+                    await fs.writeFile(filePath, photoFile);
+                    this.users[username].filePath = filePath;
                     await this.navigateToFormPage(username);
                     await this.sendCaptcha(username, chat_id);
 
@@ -266,12 +300,84 @@ class UserBot {
                     region: '64', // Саратовская область
                     subdivision: '54', // Гибдд по Саратовской области
                     requestDescription: currentUser.text,
-                    captchaText: currentUser.captchaText
+                    captchaText: currentUser.captchaText,
+                    filePath: currentUser.filePath
                 });
 
+                let code = await this.checkMailCode();
+                await currentUser.browserSession.setEmailCode(code);
                 await currentUser.browserSession._createFullPageScreenshot();
+                await currentUser.browserSession.sendForm();
+                await this.telegramBot.sendMessage(
+                    chat_id,
+                    'Отправлено Успешно'
+                );
+
+                const buttons = JSON.stringify(
+                    this.utils.createChatKeyboard([[{ title: 'Отправить' }]])
+                );
+                // send a message to the chat acknowledging receipt of their message
+                var reply = await this.telegramBot.sendMessage(
+                    chat_id,
+                    'Отправьте еще',
+                    { reply_markup: buttons }
+                );
+                this.users[
+                    username
+                ].interceptorHandler = this.handlers.askNewCommit;
+                // this.setToInitial(chat_id, username);
             }
         };
+    }
+
+    parseCode(message) {
+        var anchor = 'font-style:normal">';
+        var index = message.indexOf(anchor);
+        index += anchor.length;
+        return message.slice(index, index + 5);
+    }
+
+    async checkMailCode() {
+        var id;
+        await sleep(20000);
+        return new Promise((res, rej) => {
+            this.pop3.connect(() => {
+                console.log('connected');
+                id = setInterval(() => {
+                    this.pop3.retrieveAll((err, messages) => {
+                        if (messages) {
+                            let current = messages.filter(item => {
+                                return (
+                                    item.headers.from.indexOf(
+                                        'appeal@noreply.mvd.ru'
+                                    ) > -1
+                                );
+                            });
+                            if (current.length) {
+                                if (id) {
+                                    clearInterval(id);
+                                }
+                                try {
+                                    console.log(
+                                        current[current.length - 1].html
+                                    );
+                                } catch (er) {}
+                                this.pop3.quit();
+                                res(
+                                    this.parseCode(
+                                        current[current.length - 1].html
+                                    )
+                                );
+                            } else {
+                                rej();
+                            }
+                        } else {
+                            rej();
+                        }
+                    });
+                }, 1000);
+            });
+        });
     }
 
     async getPhotoFile(file_id) {
